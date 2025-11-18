@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLogin from "./login/page";          // <-- login imported here
-import AdminPanel from "@/app/admin/root/page"; // <-- your original UI
+import AdminPanel from "@/app/admin/adminPanel/page"; // <-- your original UI
 
 export default function AdminRoot() {
   const router = useRouter();
