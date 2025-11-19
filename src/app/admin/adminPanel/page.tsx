@@ -602,7 +602,7 @@ const AddCategoryDialog: React.FC = () => {
           </div>
           <div>
             <Label htmlFor="cat-image">Image (auto-compressed less than 500 KB)</Label>
-            <Input id="cat-image" type="file" accept="image/*" onChange={handleImage} />
+            <Input id="cat-image" type="file" accept="image/*" onChange={handleImage} required />
             {preview && (
               <div className="mt-3">
                 <img
@@ -680,7 +680,7 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({ category }) => 
           </div>
           <div>
             <Label>Image</Label>
-            <Input type="file" accept="image/*" onChange={handleImage} />
+            <Input type="file" accept="image/*" onChange={handleImage} required />
             {preview && (
               <div className="mt-3">
                 <img
