@@ -407,7 +407,7 @@ const AdminPanel: React.FC = () => {
               placeholder="Search product by name or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-6 pr-4 py-4 text-md bg-white/90 backdrop-blur-sm border-yellow-300 focus:border-yellow-500 shadow-lg"
+              className="pl-10 pr-4 py-4 text-md bg-white/90 backdrop-blur-sm border-yellow-300 focus:border-yellow-500 shadow-lg"
             />
           </div>
         </div>
@@ -449,7 +449,7 @@ const AdminPanel: React.FC = () => {
                           </div>
                         </div>
                         <div className="text-sm text-gray-500">
-                          {p.isVeg ? "🟢 Veg" : "🔴 Non-Veg"}
+                          {p.isVeg ? "Veg" : "Non-Veg"}
                         </div>
                       </div>
                     ))}
@@ -538,8 +538,9 @@ const AdminPanel: React.FC = () => {
   );
 };
 
-/* ==================== Dialogs (unchanged) ==================== */
-/* ---- Add Category ---- */
+/* ==================== Dialogs ==================== */
+
+/* ---- Add Category (Image REQUIRED) ---- */
 const AddCategoryDialog: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -559,10 +560,18 @@ const AddCategoryDialog: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!name.trim()) {
+      alert("Category name is required.");
+      return;
+    }
+    if (!image) {
+      alert("Category image is required.");
+      return;
+    }
     try {
       await addDoc(collection(db, "categories"), {
-        name: name.trim() ? formatName(name) : undefined,
-        imageUrl: image || "",
+        name: formatName(name),
+        imageUrl: image,
         createdAt: serverTimestamp(),
       });
       setOpen(false);
@@ -592,7 +601,7 @@ const AddCategoryDialog: React.FC = () => {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <Label htmlFor="cat-name">Name</Label>
+            <Label htmlFor="cat-name">Name *</Label>
             <Input
               id="cat-name"
               value={name}
@@ -601,14 +610,14 @@ const AddCategoryDialog: React.FC = () => {
             />
           </div>
           <div>
-            <Label htmlFor="cat-image">Image (auto-compressed less than 500 KB)</Label>
-            <Input id="cat-image" type="file" accept="image/*" onChange={handleImage} required />
+            <Label htmlFor="cat-image">Category Image * (required)</Label>
+            <Input id="cat-image" type="file" accept="image/*" onChange={handleImage} />
             {preview && (
               <div className="mt-3">
                 <img
                   src={preview}
                   alt="Preview"
-                  className="w-full h-40 object-cover rounded-lg"
+                  className="w-full h-40 object-cover rounded-lg border-2 border-green-500"
                 />
                 <p className="text-xs text-gray-500 text-center mt-1">{sizeInfo}</p>
               </div>
@@ -623,7 +632,7 @@ const AddCategoryDialog: React.FC = () => {
   );
 };
 
-/* ---- Edit Category ---- */
+/* ---- Edit Category (Image REQUIRED) ---- */
 interface EditCategoryDialogProps {
   category: Category;
 }
@@ -646,10 +655,18 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({ category }) => 
   };
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      alert("Category name is required.");
+      return;
+    }
+    if (!image) {
+      alert("Category image is required.");
+      return;
+    }
     try {
       await updateDoc(doc(db, "categories", category.id), {
-        name: name.trim() ? formatName(name) : undefined,
-        imageUrl: image || "",
+        name: formatName(name),
+        imageUrl: image,
       });
       setOpen(false);
     } catch (e) {
@@ -671,26 +688,27 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({ category }) => 
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <Label>Name</Label>
+            <Label>Name *</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Leave blank to remove name"
+              placeholder="Category name"
             />
           </div>
           <div>
-            <Label>Image</Label>
-            <Input type="file" accept="image/*" onChange={handleImage} required />
+            <Label>Category Image * (required)</Label>
             {preview && (
-              <div className="mt-3">
+              <div className="mt-2 mb-3">
                 <img
                   src={preview}
-                  alt="Preview"
-                  className="w-full h-40 object-cover rounded-lg"
+                  alt="Current preview"
+                  className="w-full h-40 object-cover rounded-lg border"
                 />
-                <p className="text-xs text-gray-500 text-center mt-1">{sizeInfo}</p>
+                <p className="text-xs text-gray-500 text-center mt-1">{sizeInfo || "Current image"}</p>
               </div>
             )}
+            <Input type="file" accept="image/*" onChange={handleImage} />
+            <p className="text-xs text-gray-500 mt-1">Upload new image to replace current one</p>
           </div>
         </div>
         <DialogFooter>
@@ -700,6 +718,10 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({ category }) => 
     </Dialog>
   );
 };
+
+/* ---- Rest of the dialogs remain exactly the same ---- */
+// (AddProductDialog, EditProductDialog, ProductRow, ViewProductDialog, DeleteDialog)
+// No changes made below this point
 
 /* ---- Add Product Dialog ---- */
 interface AddProductDialogProps {
@@ -1079,6 +1101,11 @@ const ProductRow: React.FC<ProductRowProps> = ({ categoryId, product }) => {
               alt={product.name}
               className="w-12 h-12 object-cover rounded"
             />
+            {imageCount > 1 && (
+              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {imageCount}
+              </span>
+            )}
           </div>
         ) : (
           <div className="w-12 h-12 bg-gray-200 border rounded flex items-center justify-center">
