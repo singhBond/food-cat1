@@ -388,7 +388,7 @@ const FastFoodCatalogue: React.FC = () => {
       })
       .join("\n");
 
-    const newOrderId = `FF-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newOrderId = `WTF-${Math.floor(100000 + Math.random() * 900000)}`;
 
     let message = `*New Order*\n\n*Order ID:* ${newOrderId}\n*Mode:* ${
       orderMode === "online" ? "Delivery (Online)" : "Takeaway (Offline)"
