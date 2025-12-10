@@ -37,7 +37,7 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import {
   Pencil,
   Eye,
@@ -79,14 +79,36 @@ const formatName = (raw: string) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
 
-const DEFAULT_CATEGORIES = [
-  "Burgers",
-  "Pizzas",
-  "Rolls",
-  "Sandwiches",
-  "Fries & Sides",
-  "Beverages",
-];
+/* ==================== Skeleton Row for Products ==================== */
+const ProductSkeletonRow = () => (
+  <tr className="border-b animate-pulse">
+    <td className="px-3 py-4">
+      <div className="h-4 bg-gray-200 rounded w-32"></div>
+    </td>
+    <td className="px-3 py-4">
+      <div className="h-4 bg-gray-200 rounded w-16"></div>
+    </td>
+    <td className="px-3 py-4">
+      <div className="h-4 bg-gray-200 rounded w-16"></div>
+    </td>
+    <td className="px-3 py-4">
+      <div className="w-6 h-6 bg-gray-200 rounded mx-auto"></div>
+    </td>
+    <td className="px-3 py-4">
+      <div className="h-4 bg-gray-200 rounded w-12"></div>
+    </td>
+    <td className="px-3 py-4">
+      <div className="w-12 h-12 bg-gray-200 rounded mx-auto"></div>
+    </td>
+    <td className="px-3 py-4">
+      <div className="flex gap-2 justify-end">
+        <div className="w-8 h-8 bg-gray-200 rounded"></div>
+        <div className="w-8 h-8 bg-gray-200 rounded"></div>
+        <div className="w-8 h-8 bg-gray-200 rounded"></div>
+      </div>
+    </td>
+  </tr>
+);
 
 /* ==================== Image Compression ==================== */
 const compressImage = (file: File): Promise<string> => {
@@ -280,6 +302,7 @@ const DeliveryChargeSettings: React.FC = () => {
 const AdminPanel: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [productsByCat, setProductsByCat] = useState<Record<string, Product[]>>({});
+  const [loadingProducts, setLoadingProducts] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
 
   // Flatten all products for search
@@ -305,26 +328,18 @@ const AdminPanel: React.FC = () => {
     );
   }, [allProducts, searchQuery]);
 
+  // Remove default category seeding
   useEffect(() => {
-    const cleanupAndSeed = async () => {
-      const junkNames = ["Cars", "Tiles", "Fruits", "Vegetables"];
+    // Cleanup junk categories only
+    const cleanupJunk = async () => {
+      const junkNames = ["Fruits", "Foods"];
       for (const bad of junkNames) {
         const q = query(collection(db, "categories"), where("name", "==", bad));
         const snap = await getDocs(q);
         for (const d of snap.docs) await deleteDoc(d.ref);
       }
-      const snap = await getDocs(collection(db, "categories"));
-      if (snap.empty) {
-        for (const name of DEFAULT_CATEGORIES) {
-          await addDoc(collection(db, "categories"), {
-            name,
-            imageUrl: "",
-            createdAt: serverTimestamp(),
-          });
-        }
-      }
     };
-    cleanupAndSeed();
+    cleanupJunk();
   }, []);
 
   useEffect(() => {
@@ -352,6 +367,8 @@ const AdminPanel: React.FC = () => {
   useEffect(() => {
     const unsubs: (() => void)[] = [];
     categories.forEach((cat) => {
+      setLoadingProducts(prev => ({ ...prev, [cat.id]: true }));
+      
       const unsub = onSnapshot(collection(db, "categories", cat.id, "products"), (snap) => {
         const prods: Product[] = snap.docs.map((d) => {
           const data = d.data();
@@ -374,6 +391,7 @@ const AdminPanel: React.FC = () => {
           return b.createdAt.toMillis() - a.createdAt.toMillis();
         });
         setProductsByCat((prev) => ({ ...prev, [cat.id]: sorted }));
+        setLoadingProducts(prev => ({ ...prev, [cat.id]: false }));
       });
       unsubs.push(unsub);
     });
@@ -390,15 +408,13 @@ const AdminPanel: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-yellow-50">Admin Panel - #WTF</h1>
-          <Button variant="ghost" size="sm" className="text-yellow-50 hover:text-white" onClick={handleLogout}>
+          <Button variant="ghost" size="sm" className="text-yellow-50 hover:text-yellow-900" onClick={handleLogout}>
             <LogOut className="mr-2 h-5 w-5" /> Logout
           </Button>
         </div>
 
-        {/* Delivery Charge Settings */}
         <DeliveryChargeSettings />
 
-        {/* Global Search Bar */}
         <div className="mb-8">
           <div className="relative max-w-2xl mx-auto">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -407,12 +423,12 @@ const AdminPanel: React.FC = () => {
               placeholder="Search product by name or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-6 pr-4 py-4 text-md bg-white/90 backdrop-blur-sm border-yellow-300 focus:border-yellow-500 shadow-lg"
+              className="pl-10 pr-4 py-4 text-md bg-white/90 backdrop-blur-sm border-yellow-300 focus:border-yellow-500 shadow-lg"
             />
           </div>
         </div>
 
-        {/* Search Results */}
+        {/* Search Results with Full Actions */}
         {searchQuery.trim() ? (
           <div className="mb-8">
             <Card className="bg-white/95 backdrop-blur-sm shadow-xl">
@@ -423,36 +439,27 @@ const AdminPanel: React.FC = () => {
                 {filteredProducts.length === 0 ? (
                   <p className="text-center text-gray-500 py-8">No products found matching "{searchQuery}"</p>
                 ) : (
-                  <div className="space-y-4">
-                    {filteredProducts.map((p) => (
-                      <div
-                        key={p.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          {p.imageUrls?.[0] || p.imageUrl ? (
-                            <img
-                              src={p.imageUrls![0] || p.imageUrl}
-                              alt={p.name}
-                              className="w-16 h-16 object-cover rounded-lg"
-                            />
-                          ) : (
-                            <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
-                              <Upload className="h-8 w-8 text-gray-400" />
-                            </div>
-                          )}
-                          <div>
-                            <h4 className="font-semibold text-lg">{p.name}</h4>
-                            <p className="text-sm text-gray-600">
-                              {p.categoryName || "Uncategorized"} • ₹{p.price}{p.halfPrice && ` / ₹${p.halfPrice}`}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {p.isVeg ? "🟢 Veg" : "🔴 Non-Veg"}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[650px] text-sm">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          {["Name", "Price", "Half", "Veg", "Qty", "Image", "Actions"].map((h) => (
+                            <th key={h} className="px-3 py-2 text-left font-medium text-gray-700">
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredProducts.map((p) => (
+                          <ProductRow
+                            key={p.id}
+                            categoryId={p.categoryId}
+                            product={p}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
@@ -507,12 +514,15 @@ const AdminPanel: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {(productsByCat[cat.id] || []).map((p) => (
-                            <ProductRow key={p.id} categoryId={cat.id} product={p} />
-                          ))}
-                          {!(productsByCat[cat.id]?.length) && (
+                          {loadingProducts[cat.id] ? (
+                            Array(5).fill(0).map((_, i) => <ProductSkeletonRow key={i} />)
+                          ) : (productsByCat[cat.id] || []).length > 0 ? (
+                            (productsByCat[cat.id] || []).map((p) => (
+                              <ProductRow key={p.id} categoryId={cat.id} product={p} />
+                            ))
+                          ) : (
                             <tr>
-                              <td colSpan={7} className="text-center py-6 text-gray-500">
+                              <td colSpan={7} className="text-center py-8 text-gray-500">
                                 No items yet. Add one!
                               </td>
                             </tr>
@@ -526,9 +536,9 @@ const AdminPanel: React.FC = () => {
             </Accordion>
 
             {categories.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                <p className="text-lg">No categories found.</p>
-                <p className="text-sm mt-2">Adding default fast food categories…</p>
+              <div className="text-center py-12">
+                <div className="w-16 h-16 border-4 border-yellow-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-lg text-yellow-50">No categories yet. Create your first one!</p>
               </div>
             )}
           </>
@@ -538,8 +548,7 @@ const AdminPanel: React.FC = () => {
   );
 };
 
-/* ==================== Dialogs (unchanged) ==================== */
-/* ---- Add Category ---- */
+/* ==================== Add Category Dialog ==================== */
 const AddCategoryDialog: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -559,10 +568,18 @@ const AddCategoryDialog: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (!name.trim()) {
+      alert("Category name is required.");
+      return;
+    }
+    if (!image) {
+      alert("Category image is required.");
+      return;
+    }
     try {
       await addDoc(collection(db, "categories"), {
-        name: name.trim() ? formatName(name) : undefined,
-        imageUrl: image || "",
+        name: formatName(name),
+        imageUrl: image,
         createdAt: serverTimestamp(),
       });
       setOpen(false);
@@ -592,7 +609,7 @@ const AddCategoryDialog: React.FC = () => {
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <Label htmlFor="cat-name">Name</Label>
+            <Label htmlFor="cat-name">Name *</Label>
             <Input
               id="cat-name"
               value={name}
@@ -601,14 +618,14 @@ const AddCategoryDialog: React.FC = () => {
             />
           </div>
           <div>
-            <Label htmlFor="cat-image">Image (auto-compressed less than 500 KB)</Label>
+            <Label htmlFor="cat-image">Category Image * (required)</Label>
             <Input id="cat-image" type="file" accept="image/*" onChange={handleImage} />
             {preview && (
               <div className="mt-3">
                 <img
                   src={preview}
                   alt="Preview"
-                  className="w-full h-40 object-cover rounded-lg"
+                  className="w-full h-40 object-cover rounded-lg border-2 border-green-500"
                 />
                 <p className="text-xs text-gray-500 text-center mt-1">{sizeInfo}</p>
               </div>
@@ -623,7 +640,7 @@ const AddCategoryDialog: React.FC = () => {
   );
 };
 
-/* ---- Edit Category ---- */
+/* ==================== Edit Category Dialog ==================== */
 interface EditCategoryDialogProps {
   category: Category;
 }
@@ -646,10 +663,18 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({ category }) => 
   };
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      alert("Category name is required.");
+      return;
+    }
+    if (!image) {
+      alert("Category image is required.");
+      return;
+    }
     try {
       await updateDoc(doc(db, "categories", category.id), {
-        name: name.trim() ? formatName(name) : undefined,
-        imageUrl: image || "",
+        name: formatName(name),
+        imageUrl: image,
       });
       setOpen(false);
     } catch (e) {
@@ -671,26 +696,27 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({ category }) => 
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <Label>Name</Label>
+            <Label>Name *</Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Leave blank to remove name"
+              placeholder="Category name"
             />
           </div>
           <div>
-            <Label>Image</Label>
-            <Input type="file" accept="image/*" onChange={handleImage} />
+            <Label>Category Image * (required)</Label>
             {preview && (
-              <div className="mt-3">
+              <div className="mt-2 mb-3">
                 <img
                   src={preview}
-                  alt="Preview"
-                  className="w-full h-40 object-cover rounded-lg"
+                  alt="Current preview"
+                  className="w-full h-40 object-cover rounded-lg border"
                 />
-                <p className="text-xs text-gray-500 text-center mt-1">{sizeInfo}</p>
+                <p className="text-xs text-gray-500 text-center mt-1">{sizeInfo || "Current image"}</p>
               </div>
             )}
+            <Input type="file" accept="image/*" onChange={handleImage} />
+            <p className="text-xs text-gray-500 mt-1">Upload new image to replace current one</p>
           </div>
         </div>
         <DialogFooter>
@@ -701,7 +727,7 @@ const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({ category }) => 
   );
 };
 
-/* ---- Add Product Dialog ---- */
+/* ==================== Add Product Dialog ==================== */
 interface AddProductDialogProps {
   categoryId: string;
 }
@@ -792,7 +818,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({ categoryId }) => {
                 type="number"
                 value={halfPrice ?? ""}
                 onChange={(e) => setHalfPrice(e.target.value ? Number(e.target.value) : undefined)}
-                placeholder="Enter Price of "
+                placeholder="Enter Price of Half"
                 disabled={isLoading}
               />
             </div>
@@ -831,7 +857,6 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({ categoryId }) => {
             />
           </div>
 
-          {/* IMAGE SECTION */}
           <div>
             <Label>Images (auto-compressed less than 500 KB each)</Label>
             {previews.length > 0 && (
@@ -895,7 +920,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({ categoryId }) => {
   );
 };
 
-/* ---- Edit Product Dialog ---- */
+/* ==================== Edit Product Dialog ==================== */
 interface EditProductDialogProps {
   categoryId: string;
   product: Product;
@@ -1041,7 +1066,7 @@ const EditProductDialog: React.FC<EditProductDialogProps> = ({
   );
 };
 
-/* ---- Product Row ---- */
+/* ==================== Product Row ==================== */
 interface ProductRowProps {
   categoryId: string;
   product: Product;
@@ -1079,6 +1104,11 @@ const ProductRow: React.FC<ProductRowProps> = ({ categoryId, product }) => {
               alt={product.name}
               className="w-12 h-12 object-cover rounded"
             />
+            {imageCount > 1 && (
+              <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {imageCount}
+              </span>
+            )}
           </div>
         ) : (
           <div className="w-12 h-12 bg-gray-200 border rounded flex items-center justify-center">
@@ -1125,7 +1155,7 @@ const ProductRow: React.FC<ProductRowProps> = ({ categoryId, product }) => {
   );
 };
 
-/* ---- View Product Dialog ---- */
+/* ==================== View Product Dialog ==================== */
 interface ViewProductDialogProps {
   product: Product;
   onClose: () => void;
@@ -1169,7 +1199,7 @@ const ViewProductDialog: React.FC<ViewProductDialogProps> = ({ product, onClose 
   );
 };
 
-/* ---- Delete Dialog ---- */
+/* ==================== Delete Dialog ==================== */
 interface DeleteDialogProps {
   title: string;
   description: string;
