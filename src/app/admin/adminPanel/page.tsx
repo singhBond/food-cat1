@@ -828,7 +828,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({ categoryId }) => {
             <Input
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              placeholder="Enter Serving Quantity"
+              placeholder="Enter Serves Quantity"
               disabled={isLoading}
             />
           </div>
